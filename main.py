@@ -9,6 +9,29 @@ import requests
 from helper_function import validate_llm_response
 import datetime
 from db import user_collection
+from db import store_collection
+from sentence_transformers import SentenceTransformer
+import faiss
+
+
+# =================== ML EMBEDDINGS ===================
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+
+def build_store_index():
+    store_products = list(store_collection.find({}, {"_id": 0, "product": 1, "category": 1, "price": 1}))
+    if not store_products:
+        return None, []
+
+    product_texts = [p["product"] for p in store_products]
+    vectors = embedder.encode(product_texts, convert_to_numpy=True)
+
+    dim = vectors.shape[1]
+    index = faiss.IndexFlatL2(dim)
+    index.add(vectors)
+
+    return index, store_products
+
+faiss_index, store_products = build_store_index()
 
 
 # ======================= GROQ API ======================
@@ -204,3 +227,29 @@ async def get_wishlist(username: str):
         return {"wishlist": user.get("wishlist", [])}
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.get("/recommendations/{username}")
+def get_recommendations(username: str):
+    user = user_collection.find_one({"username": username}, {"wishlist": 1})
+    if not user or "wishlist" not in user:
+        return {"recommendations": [], "note": "No wishlist found"}
+
+    wishlist = user["wishlist"]
+    if not wishlist:
+        return {"recommendations": [], "note": "Wishlist empty"}
+
+    wishlist_products = [item["product"] for item in wishlist]
+    wishlist_text = " ".join(wishlist_products)
+
+    query_vector = embedder.encode([wishlist_text], convert_to_numpy=True)
+
+    distances, indices = faiss_index.search(query_vector, k=10)
+
+    recs = []
+    for idx in indices[0]:
+        candidate = store_products[idx]
+        if candidate["product"] not in wishlist_products:
+            recs.append(candidate)
+
+    return {"recommendations": recs[:5]}

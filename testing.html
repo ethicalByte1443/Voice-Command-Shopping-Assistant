@@ -21,6 +21,9 @@
   <h3>🛒 Your Wishlist</h3>
   <ul id="wishlist"></ul>
 
+  <h3>✨ Recommended for You</h3>
+  <ul id="recommendations"></ul>
+
   <script>
     let mediaRecorder;
     let audioChunks = [];
@@ -35,22 +38,43 @@
     const confirmBtn = document.getElementById("confirmBtn");
     const cancelBtn = document.getElementById("cancelBtn");
     const wishlist = document.getElementById("wishlist");
+    const recommendations = document.getElementById("recommendations");
 
-    // 🔹 Function to fetch wishlist from backend
+    // 🔹 Function to fetch wishlist
     async function loadWishlist() {
       let res = await fetch(`http://127.0.0.1:8000/wishlist/${username}`);
       let data = await res.json();
       wishlist.innerHTML = ""; // clear old list
-      data.wishlist.forEach(item => {
-        let li = document.createElement("li");
-        li.textContent = `${item.quantity} × ${item.product} (${item.category})`;
-        li.id = `item-${item.product}`;
-        wishlist.appendChild(li);
-      });
+      if (data.wishlist) {
+        data.wishlist.forEach(item => {
+          let li = document.createElement("li");
+          li.textContent = `${item.quantity} × ${item.product} (${item.category})`;
+          wishlist.appendChild(li);
+        });
+      }
     }
 
-    // Load wishlist on page load
-    window.onload = loadWishlist;
+    // 🔹 Function to fetch recommendations
+    async function loadRecommendations() {
+      let res = await fetch(`http://127.0.0.1:8000/recommendations/${username}`);
+      let data = await res.json();
+      recommendations.innerHTML = ""; // clear old list
+      if (data.recommendations) {
+        data.recommendations.forEach(item => {
+          let li = document.createElement("li");
+          li.textContent = `${item.product} (${item.category}) - ₹${item.price} | Stock: ${item.quantity}`;
+          recommendations.appendChild(li);
+        });
+      } else {
+        recommendations.innerHTML = "<li>No recommendations found</li>";
+      }
+    }
+
+    // Load wishlist + recommendations on page load
+    window.onload = async () => {
+      await loadWishlist();
+      await loadRecommendations();
+    };
 
     startBtn.onclick = async () => {
       let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -95,7 +119,8 @@
       if (result.message) {
         alert("✅ " + result.message);
         confirmBox.style.display = "none";
-        await loadWishlist(); // refresh wishlist from DB
+        await loadWishlist();       // refresh wishlist
+        await loadRecommendations(); // refresh recommendations
       } else {
         alert("❌ " + result.error);
       }
