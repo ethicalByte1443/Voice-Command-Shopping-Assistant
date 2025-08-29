@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Wishlist</title>
+</head>
+<body>
+  <h2>🎤 Voice to Wishlist</h2>
+  <button id="startBtn">Start Recording</button>
+  <button id="stopBtn">Stop & Upload</button>
+
+  <p><b>Recognized Text:</b> <span id="recognized"></span></p>
+  <pre id="llmResponse"></pre>
+
+  <div id="confirmBox" style="display:none;">
+    <p>✅ Are you sure you want to update your wishlist?</p>
+    <button id="confirmBtn">Yes</button>
+    <button id="cancelBtn">No</button>
+  </div>
+
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let lastLLMResponse = null;
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const recognized = document.getElementById("recognized");
+    const llmResponseBox = document.getElementById("llmResponse");
+    const confirmBox = document.getElementById("confirmBox");
+    const confirmBtn = document.getElementById("confirmBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    startBtn.onclick = async () => {
+      let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.start();
+    };
+
+    stopBtn.onclick = () => {
+      mediaRecorder.stop();
+      mediaRecorder.onstop = async () => {
+        let blob = new Blob(audioChunks, { type: "audio/webm" });
+        let formData = new FormData();
+        formData.append("file", blob, "voice.webm");
+
+        let response = await fetch("http://127.0.0.1:8000/add_to_wishlist", {
+          method: "POST",
+          body: formData
+        });
+        let result = await response.json();
+
+        if (result.recognized_text) {
+          recognized.textContent = result.recognized_text;
+          llmResponseBox.textContent = JSON.stringify(result.llm_response, null, 2);
+          lastLLMResponse = result.llm_response;
+          confirmBox.style.display = "block";
+        } else {
+          recognized.textContent = "Error: " + result.error;
+        }
+      };
+    };
+
+    confirmBtn.onclick = async () => {
+      let response = await fetch("http://127.0.0.1:8000/update_wishlist/aseem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lastLLMResponse)
+      });
+      let result = await response.json();
+      alert("✅ " + result.message);
+      confirmBox.style.display = "none";
+    };
+
+    cancelBtn.onclick = () => {
+      confirmBox.style.display = "none";
+      alert("❌ Cancelled by user");
+    };
+  </script>
+</body>
+</html>
