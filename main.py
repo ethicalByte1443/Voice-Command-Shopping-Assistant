@@ -25,6 +25,8 @@ def process_command(user_text: str):
     prompt = f"""
 You are AI working as a store assistant. 
 Parse the following user command into a JSON object with these exact fields:
+If u  find the command irrelevent and found no information from that so just put a error message in all the key of json
+
 
 - product: name of the item (string)
 - quantity: number (default = 1 if not mentioned)
@@ -191,3 +193,14 @@ async def update_wishlist_route(username: str, llm_response: dict):
     """
     result = update_wishlist(username, llm_response)
     return result
+
+
+@app.get("/wishlist/{username}")
+async def get_wishlist(username: str):
+    try:
+        user = user_collection.find_one({"username": username}, {"_id": 0, "wishlist": 1})
+        if not user:
+            return {"wishlist": []}  # empty if user not found
+        return {"wishlist": user.get("wishlist", [])}
+    except Exception as e:
+        return {"error": str(e)}

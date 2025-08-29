@@ -18,10 +18,14 @@
     <button id="cancelBtn">No</button>
   </div>
 
+  <h3>🛒 Your Wishlist</h3>
+  <ul id="wishlist"></ul>
+
   <script>
     let mediaRecorder;
     let audioChunks = [];
     let lastLLMResponse = null;
+    const username = "aseem";  // <- fix username for now
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
@@ -30,6 +34,23 @@
     const confirmBox = document.getElementById("confirmBox");
     const confirmBtn = document.getElementById("confirmBtn");
     const cancelBtn = document.getElementById("cancelBtn");
+    const wishlist = document.getElementById("wishlist");
+
+    // 🔹 Function to fetch wishlist from backend
+    async function loadWishlist() {
+      let res = await fetch(`http://127.0.0.1:8000/wishlist/${username}`);
+      let data = await res.json();
+      wishlist.innerHTML = ""; // clear old list
+      data.wishlist.forEach(item => {
+        let li = document.createElement("li");
+        li.textContent = `${item.quantity} × ${item.product} (${item.category})`;
+        li.id = `item-${item.product}`;
+        wishlist.appendChild(li);
+      });
+    }
+
+    // Load wishlist on page load
+    window.onload = loadWishlist;
 
     startBtn.onclick = async () => {
       let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -64,14 +85,20 @@
     };
 
     confirmBtn.onclick = async () => {
-      let response = await fetch("http://127.0.0.1:8000/update_wishlist/aseem", {
+      let response = await fetch(`http://127.0.0.1:8000/update_wishlist/${username}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(lastLLMResponse)
       });
       let result = await response.json();
-      alert("✅ " + result.message);
-      confirmBox.style.display = "none";
+
+      if (result.message) {
+        alert("✅ " + result.message);
+        confirmBox.style.display = "none";
+        await loadWishlist(); // refresh wishlist from DB
+      } else {
+        alert("❌ " + result.error);
+      }
     };
 
     cancelBtn.onclick = () => {
