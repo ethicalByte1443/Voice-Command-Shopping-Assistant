@@ -1,1 +1,8 @@
-# pip install fastapi uvicorn python-multipart speechrecognition pymongo
+fastapi
+uvicorn
+assemblyai
+python-dotenv
+requests
+pymongo
+sentence-transformers
+faiss-cpu
