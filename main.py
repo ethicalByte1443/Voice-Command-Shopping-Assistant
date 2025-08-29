@@ -6,13 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import json
 import requests
-from helper_function import validate_llm_response
+from helper_function import validate_llm_response, find_closest_product
 import datetime
 from db import user_collection
 from db import store_collection
 from sentence_transformers import SentenceTransformer
 import faiss
-
+from rapidfuzz import fuzz, process
 
 # =================== ML EMBEDDINGS ===================
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -120,10 +120,10 @@ app.add_middleware(
 )
 
 
-@app.post("/add_to_wishlist")
-async def add_to_wishlist(file: UploadFile = File(...)):
+@app.post("/recognise_text_to_llm")
+async def recognise_text_to_llm(file: UploadFile = File(...)):
     try:
-        print("/add_to_wishlist initiated")
+        print("/recognise_text_to_llm initiated")
         # Save audio temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
             temp_file.write(await file.read())
@@ -156,57 +156,87 @@ async def add_to_wishlist(file: UploadFile = File(...)):
     
 
 
+
 def update_wishlist(username: str, llm_response: dict):
     try:
         if not validate_llm_response(llm_response):
             return {"error": "Invalid LLM response"}
 
         llm_response["timestamp"] = datetime.datetime.utcnow().isoformat()
+        action = llm_response["action"].lower()
 
-        if llm_response["action"].lower() == "add":
-            # Add to wishlist + history
+        # ======================= ADD =======================
+        if action == "add":
+            # 🔎 Step 1: Check product in store
+            store_item = store_collection.find_one(
+                {"product": {"$regex": f"^{llm_response['product']}$", "$options": "i"}}
+            )
+
+            if not store_item:
+                return {"error": f"No item '{llm_response['product']}' found in store"}
+
+            store_quantity = store_item.get("quantity", 0)
+            requested_quantity = int(llm_response.get("quantity", 1))
+
+            # 🔎 Step 2: Validate stock
+            if requested_quantity > store_quantity:
+                return {
+                    "error": f"Only {store_quantity} × {store_item['product']} available in store"
+                }
+
+            # ✅ Step 3: Add to wishlist + history
             user_collection.update_one(
                 {"username": username},
                 {
                     "$push": {
                         "wishlist": {
-                            "product": llm_response["product"],
-                            "quantity": llm_response["quantity"],
-                            "category": llm_response["category"],
+                            "product": store_item["product"],  # consistent name
+                            "quantity": requested_quantity,
+                            "category": store_item.get("category", llm_response["category"]),
                             "action": "add",
                             "status": llm_response["status"],
                             "timestamp": llm_response["timestamp"]
                         }
-                    }
+                    },
+                    "$push": {"historylist": llm_response}
                 },
                 upsert=True
             )
+
             return {"message": "Product added to wishlist", "data": llm_response}
 
-        elif llm_response["action"].lower() in ["remove", "delete"]:
-            # First check if product exists in wishlist
-            user = user_collection.find_one(
-                {"username": username, "wishlist.product": llm_response["product"]}
-            )
+        # =================== REMOVE / DELETE ==================
+        elif action in ["remove", "delete"]:
+            user = user_collection.find_one({"username": username})
+            if not user or "wishlist" not in user:
+                return {"error": "No wishlist found"}
 
-            if not user:
-                return {"error": "Product not found in wishlist"}
+            wishlist = user.get("wishlist", [])
+            closest = find_closest_product(llm_response["product"], wishlist)
 
-            # If exists → remove and add to history
+            if not closest:
+                return {"error": f"No matching product found for '{llm_response['product']}'"}
+
+            # ✅ Remove matched product and add to history
             user_collection.update_one(
                 {"username": username},
                 {
-                    "$pull": {"wishlist": {"product": llm_response["product"]}},
+                    "$pull": {"wishlist": {"product": closest["product"]}},
                     "$push": {"historylist": llm_response}
                 }
             )
-            return {"message": "Product removed from wishlist", "data": llm_response}
+            return {
+                "message": f"Product '{closest['product']}' removed from wishlist",
+                "data": llm_response
+            }
 
+        # =================== UNKNOWN ==================
         else:
             return {"error": f"Unsupported action: {llm_response['action']}"}
 
     except Exception as e:
         return {"error": str(e)}
+
     
 
 @app.post("/update_wishlist/{username}")

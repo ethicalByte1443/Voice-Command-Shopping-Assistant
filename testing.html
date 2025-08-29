@@ -3,11 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <title>Voice Wishlist</title>
+  <style>
+    /* 🔹 Simple Loader Spinner */
+    #loader {
+      display: none;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
   <h2>🎤 Voice to Wishlist</h2>
   <button id="startBtn">Start Recording</button>
   <button id="stopBtn">Stop & Upload</button>
+
+  <!-- 🔹 Loader -->
+  <div id="loader"></div>
 
   <p><b>Recognized Text:</b> <span id="recognized"></span></p>
   <pre id="llmResponse"></pre>
@@ -27,8 +48,10 @@
   <script>
     let mediaRecorder;
     let audioChunks = [];
+    let mediaStream;
+    let recordTimeout;
     let lastLLMResponse = null;
-    const username = "aseem";  // <- fix username for now
+    const username = "aseem";  // <- fixed username for now
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
@@ -39,12 +62,13 @@
     const cancelBtn = document.getElementById("cancelBtn");
     const wishlist = document.getElementById("wishlist");
     const recommendations = document.getElementById("recommendations");
+    const loader = document.getElementById("loader");
 
     // 🔹 Function to fetch wishlist
     async function loadWishlist() {
       let res = await fetch(`http://127.0.0.1:8000/wishlist/${username}`);
       let data = await res.json();
-      wishlist.innerHTML = ""; // clear old list
+      wishlist.innerHTML = ""; 
       if (data.wishlist) {
         data.wishlist.forEach(item => {
           let li = document.createElement("li");
@@ -58,7 +82,7 @@
     async function loadRecommendations() {
       let res = await fetch(`http://127.0.0.1:8000/recommendations/${username}`);
       let data = await res.json();
-      recommendations.innerHTML = ""; // clear old list
+      recommendations.innerHTML = ""; 
       if (data.recommendations) {
         data.recommendations.forEach(item => {
           let li = document.createElement("li");
@@ -76,26 +100,52 @@
       await loadRecommendations();
     };
 
+    // 🎤 Start recording
     startBtn.onclick = async () => {
-      let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(mediaStream);
       audioChunks = [];
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
       mediaRecorder.start();
+
+      // Optional: Auto-stop after 10s
+      recordTimeout = setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          stopBtn.click();
+        }
+      }, 10000);
     };
 
+    // ⏹ Stop recording
     stopBtn.onclick = () => {
-      mediaRecorder.stop();
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+
+      // ✅ Release microphone
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+
+      clearTimeout(recordTimeout);
+
+      // Show loader before API call
+      loader.style.display = "block";
+      recognized.textContent = "";
+
       mediaRecorder.onstop = async () => {
         let blob = new Blob(audioChunks, { type: "audio/webm" });
         let formData = new FormData();
         formData.append("file", blob, "voice.webm");
 
-        let response = await fetch("http://127.0.0.1:8000/add_to_wishlist", {
+        let response = await fetch("http://127.0.0.1:8000/recognise_text_to_llm", {
           method: "POST",
           body: formData
         });
         let result = await response.json();
+
+        // Hide loader after response
+        loader.style.display = "none";
 
         if (result.recognized_text) {
           recognized.textContent = result.recognized_text;
@@ -108,6 +158,7 @@
       };
     };
 
+    // ✅ Confirm update
     confirmBtn.onclick = async () => {
       let response = await fetch(`http://127.0.0.1:8000/update_wishlist/${username}`, {
         method: "POST",
@@ -119,13 +170,14 @@
       if (result.message) {
         alert("✅ " + result.message);
         confirmBox.style.display = "none";
-        await loadWishlist();       // refresh wishlist
-        await loadRecommendations(); // refresh recommendations
+        await loadWishlist();       
+        await loadRecommendations(); 
       } else {
         alert("❌ " + result.error);
       }
     };
 
+    // ❌ Cancel update
     cancelBtn.onclick = () => {
       confirmBox.style.display = "none";
       alert("❌ Cancelled by user");
