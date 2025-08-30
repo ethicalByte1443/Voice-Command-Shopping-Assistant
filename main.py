@@ -6,13 +6,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import json
 import requests
-from helper_function import validate_llm_response, find_closest_product
+from helper_function import validate_llm_response
 import datetime
 from db import user_collection
 from db import store_collection
 from sentence_transformers import SentenceTransformer
 import faiss
 from rapidfuzz import fuzz, process
+from difflib import get_close_matches
+import numpy as np
+
+
+def find_closest_product(query: str, items: list, key: str = "product"):
+    """Find the closest matching product by fuzzy string match."""
+    product_names = [item[key] for item in items if key in item]
+    matches = get_close_matches(query.lower(), [p.lower() for p in product_names], n=1, cutoff=0.6)
+    if matches:
+        for item in items:
+            if item[key].lower() == matches[0]:
+                return item
+    return None
 
 # =================== ML EMBEDDINGS ===================
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -167,13 +180,12 @@ def update_wishlist(username: str, llm_response: dict):
 
         # ======================= ADD =======================
         if action == "add":
-            # 🔎 Step 1: Check product in store
-            store_item = store_collection.find_one(
-                {"product": {"$regex": f"^{llm_response['product']}$", "$options": "i"}}
-            )
+            # 🔎 Step 1: Try fuzzy search in store collection
+            store_products = list(store_collection.find({}, {"_id": 0, "product": 1, "category": 1, "quantity": 1}))
+            store_item = find_closest_product(llm_response["product"], store_products, key="product")
 
             if not store_item:
-                return {"error": f"No item '{llm_response['product']}' found in store"}
+                return {"error": f"No similar item found in store for '{llm_response['product']}'"}
 
             store_quantity = store_item.get("quantity", 0)
             requested_quantity = int(llm_response.get("quantity", 1))
@@ -190,20 +202,19 @@ def update_wishlist(username: str, llm_response: dict):
                 {
                     "$push": {
                         "wishlist": {
-                            "product": store_item["product"],  # consistent name
+                            "product": store_item["product"],  # use official name
                             "quantity": requested_quantity,
-                            "category": store_item.get("category", llm_response["category"]),
+                            "category": store_item.get("category", llm_response.get("category", "unknown")),
                             "action": "add",
                             "status": llm_response["status"],
                             "timestamp": llm_response["timestamp"]
                         }
-                    },
-                    "$push": {"historylist": llm_response}
+                    }
                 },
                 upsert=True
             )
 
-            return {"message": "Product added to wishlist", "data": llm_response}
+            return {"message": f"Product '{store_item['product']}' added to wishlist", "data": llm_response}
 
         # =================== REMOVE / DELETE ==================
         elif action in ["remove", "delete"]:
@@ -215,7 +226,7 @@ def update_wishlist(username: str, llm_response: dict):
             closest = find_closest_product(llm_response["product"], wishlist)
 
             if not closest:
-                return {"error": f"No matching product found for '{llm_response['product']}'"}
+                return {"error": f"No matching product found in wishlist for '{llm_response['product']}'"}
 
             # ✅ Remove matched product and add to history
             user_collection.update_one(
@@ -259,6 +270,20 @@ async def get_wishlist(username: str):
         return {"error": str(e)}
 
 
+
+# =================================================================================================
+store_products = list(store_collection.find({}, {"_id": 0}))
+
+# Encode all store product names
+store_embeddings = embedder.encode([p["product"] for p in store_products], convert_to_numpy=True)
+
+# Create FAISS index
+d = store_embeddings.shape[1]  # embedding dimension
+faiss_index = faiss.IndexFlatL2(d)
+faiss_index.add(np.array(store_embeddings))
+# ================================================================================================
+
+
 @app.get("/recommendations/{username}")
 def get_recommendations(username: str):
     user = user_collection.find_one({"username": username}, {"wishlist": 1})
@@ -269,17 +294,72 @@ def get_recommendations(username: str):
     if not wishlist:
         return {"recommendations": [], "note": "Wishlist empty"}
 
-    wishlist_products = [item["product"] for item in wishlist]
-    wishlist_text = " ".join(wishlist_products)
+    wishlist_products = [item["product"].lower() for item in wishlist]
+    wishlist_categories = {item.get("category", "").lower() for item in wishlist}
 
-    query_vector = embedder.encode([wishlist_text], convert_to_numpy=True)
+    # Embed wishlist items
+    wishlist_vectors = embedder.encode(wishlist_products, convert_to_numpy=True)
 
-    distances, indices = faiss_index.search(query_vector, k=10)
+    rec_candidates = {}
 
-    recs = []
-    for idx in indices[0]:
-        candidate = store_products[idx]
-        if candidate["product"] not in wishlist_products:
-            recs.append(candidate)
+    for vec in wishlist_vectors:
+        distances, indices = faiss_index.search(vec.reshape(1, -1), k=10)
+        for idx, dist in zip(indices[0], distances[0]):
+            if idx == -1:  # FAISS sometimes returns -1
+                continue
 
-    return {"recommendations": recs[:5]}
+            candidate = store_products[idx]
+
+            # Skip if already in wishlist
+            if candidate["product"].lower() in wishlist_products:
+                continue
+
+            # Skip out of stock
+            if candidate.get("quantity", 0) <= 0:
+                continue
+
+            score = float(dist)
+
+            # Boost same category
+            if candidate.get("category", "").lower() in wishlist_categories:
+                score *= 0.8
+            else:
+                score *= 1.2  # small penalty but not exclusion
+
+            prod_key = candidate["product"].lower()
+            if prod_key not in rec_candidates or score < rec_candidates[prod_key]["score"]:
+                rec_candidates[prod_key] = {"item": candidate, "score": score}
+
+    # Sort by score
+    recs = sorted(rec_candidates.values(), key=lambda x: x["score"])
+    sorted_items = [r["item"] for r in recs]
+
+    # Hybrid strategy
+    final_recs = []
+
+    # Top 2 from same category
+    for r in sorted_items:
+        if r["category"].lower() in wishlist_categories:
+            final_recs.append(r)
+        if len(final_recs) >= 2:
+            break
+
+    # Top 2 from related categories
+    for r in sorted_items:
+        if r not in final_recs and r["category"].lower() not in wishlist_categories:
+            final_recs.append(r)
+        if len(final_recs) >= 4:
+            break
+
+    # 1 surprise item
+    for r in sorted_items:
+        if r not in final_recs:
+            final_recs.append(r)
+            break
+
+    # Fallback: if still empty, just return top 5 store products
+    if not final_recs:
+        final_recs = store_products[:5]
+
+    return {"recommendations": final_recs[:5]}
+
