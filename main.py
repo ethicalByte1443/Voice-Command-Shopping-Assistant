@@ -15,7 +15,7 @@ import faiss
 from rapidfuzz import fuzz, process
 from difflib import get_close_matches
 import numpy as np
-
+import re
 
 def find_closest_product(query: str, items: list, key: str = "product"):
     """Find the closest matching product by fuzzy string match."""
@@ -133,6 +133,30 @@ app.add_middleware(
 )
 
 
+
+# --- New helper: Normalize text for flexible user phrases ---
+def normalize_user_text(text: str) -> str:
+    """
+    Basic NLP normalization: lowercasing, intent recognition,
+    and mapping different phrasings to a standard format.
+    """
+    text = text.lower().strip()
+
+    # Simple replacements for shopping list intent
+    patterns = [
+        (r"(i want to buy|add|put|include)\s+(.*)", r"add \2 to list"),
+        (r"(remove|delete|take out)\s+(.*)", r"remove \2 from list"),
+        (r"(show|display|what's in|list items)", r"show my list"),
+    ]
+
+    for pattern, replacement in patterns:
+        if re.search(pattern, text):
+            return re.sub(pattern, replacement, text)
+
+    # fallback: return as is
+    return text
+
+
 @app.post("/recognise_text_to_llm")
 async def recognise_text_to_llm(file: UploadFile = File(...)):
     try:
@@ -152,13 +176,21 @@ async def recognise_text_to_llm(file: UploadFile = File(...)):
         if transcript.status == aai.TranscriptStatus.error:
             return {"error": transcript.error}
 
-        print(transcript.text)
-        llm_response = process_command(transcript.text)
-        print(llm_response)
+        print("Original transcript:", transcript.text)
+
+        # ✅ NLP step: normalize/understand varied user phrasing
+        normalized_text = normalize_user_text(transcript.text)
+        print("Normalized text:", normalized_text)
+
+        # Process through your existing LLM logic
+        llm_response = process_command(normalized_text)
+        print("LLM response:", llm_response)
+
         if validate_llm_response(llm_response):
             # ✅ send to frontend for confirmation
             return {
                 "recognized_text": transcript.text,
+                "normalized_text": normalized_text,
                 "llm_response": llm_response
             }
         else:
@@ -166,7 +198,7 @@ async def recognise_text_to_llm(file: UploadFile = File(...)):
 
     except Exception as e:
         return {"error": str(e)}
-    
+
 
 
 
