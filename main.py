@@ -129,7 +129,6 @@ async def get_wishlist(username: str):
         return {"error": str(e)}
 
 
-
 # =================================================================================================
 store_products = list(store_collection.find({}, {"_id": 0}))
 
