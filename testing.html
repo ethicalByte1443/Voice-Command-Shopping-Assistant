@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Voice Wishlist</title>
@@ -17,11 +18,17 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
   </style>
 </head>
+
 <body>
   <h2>🎤 Voice to Wishlist</h2>
   <button id="startBtn">Start Recording</button>
@@ -68,7 +75,7 @@
     async function loadWishlist() {
       let res = await fetch(`http://127.0.0.1:8000/wishlist/${username}`);
       let data = await res.json();
-      wishlist.innerHTML = ""; 
+      wishlist.innerHTML = "";
       if (data.wishlist) {
         data.wishlist.forEach(item => {
           let li = document.createElement("li");
@@ -82,7 +89,7 @@
     async function loadRecommendations() {
       let res = await fetch(`http://127.0.0.1:8000/recommendations/${username}`);
       let data = await res.json();
-      recommendations.innerHTML = ""; 
+      recommendations.innerHTML = "";
       if (data.recommendations) {
         data.recommendations.forEach(item => {
           let li = document.createElement("li");
@@ -105,7 +112,43 @@
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(mediaStream);
       audioChunks = [];
+
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+      // ✅ Define onstop BEFORE calling stop
+      mediaRecorder.onstop = async () => {
+        let blob = new Blob(audioChunks, { type: "audio/webm" });
+        let formData = new FormData();
+        formData.append("file", blob, "voice.webm");
+
+        try {
+          // Show loader before API call
+          loader.style.display = "block";
+          recognized.textContent = "";
+
+          let response = await fetch("http://127.0.0.1:8000/recognise_text_to_llm", {
+            method: "POST",
+            body: formData
+          });
+          let result = await response.json();
+
+          loader.style.display = "none";
+
+          if (result.recognized_text) {
+            recognized.textContent = result.recognized_text;
+            llmResponseBox.textContent = JSON.stringify(result.llm_response, null, 2);
+            lastLLMResponse = result.llm_response;
+            confirmBox.style.display = "block";
+          } else {
+            recognized.textContent = "Error: " + (result.error || "Unknown error");
+          }
+        } catch (err) {
+          loader.style.display = "none";
+          recognized.textContent = "Error: " + err.message;
+          console.error("Recording upload failed:", err);
+        }
+      };
+
       mediaRecorder.start();
 
       // Optional: Auto-stop after 10s
@@ -128,35 +171,8 @@
       }
 
       clearTimeout(recordTimeout);
-
-      // Show loader before API call
-      loader.style.display = "block";
-      recognized.textContent = "";
-
-      mediaRecorder.onstop = async () => {
-        let blob = new Blob(audioChunks, { type: "audio/webm" });
-        let formData = new FormData();
-        formData.append("file", blob, "voice.webm");
-
-        let response = await fetch("http://127.0.0.1:8000/recognise_text_to_llm", {
-          method: "POST",
-          body: formData
-        });
-        let result = await response.json();
-
-        // Hide loader after response
-        loader.style.display = "none";
-
-        if (result.recognized_text) {
-          recognized.textContent = result.recognized_text;
-          llmResponseBox.textContent = JSON.stringify(result.llm_response, null, 2);
-          lastLLMResponse = result.llm_response;
-          confirmBox.style.display = "block";
-        } else {
-          recognized.textContent = "Error: " + result.error;
-        }
-      };
     };
+
 
     // ✅ Confirm update
     confirmBtn.onclick = async () => {
@@ -170,8 +186,8 @@
       if (result.message) {
         alert("✅ " + result.message);
         confirmBox.style.display = "none";
-        await loadWishlist();       
-        await loadRecommendations(); 
+        await loadWishlist();
+        await loadRecommendations();
       } else {
         alert("❌ " + result.error);
       }
@@ -184,4 +200,5 @@
     };
   </script>
 </body>
+
 </html>

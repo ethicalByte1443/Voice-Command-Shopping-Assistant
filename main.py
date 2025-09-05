@@ -13,7 +13,9 @@ from rapidfuzz import fuzz, process
 import numpy as np
 from helper_function import update_wishlist, normalize_user_text
 from prompt import process_command
-
+from fastapi.encoders import jsonable_encoder
+from bson import json_util
+import json
 
 
 # ===================== LOAD CREDENTIALS =======================
@@ -229,3 +231,10 @@ def get_recommendations(username: str):
     return {"recommendations": final_recs[:10]}
 
 
+@app.get("/store")
+def get_store():
+    try:
+        products = list(store_collection.find({}, {"_id": 1, "product": 1, "category": 1, "price": 1, "quantity": 1}))
+        return json.loads(json_util.dumps(products))
+    except Exception as e:
+        return {"error": str(e)}

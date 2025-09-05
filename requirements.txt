@@ -1,8 +1,9 @@
 fastapi
-uvicorn
+uvicorn[standard]
 assemblyai
 python-dotenv
-requests
 pymongo
 sentence-transformers
 faiss-cpu
+rapidfuzz
+numpy
