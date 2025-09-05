@@ -1,7 +1,10 @@
-from fastapi import FastAPI, UploadFile, File
+import datetime
+from fastapi import FastAPI, HTTPException, UploadFile, File
 import assemblyai as aai
 import tempfile
 import os
+from pydantic import BaseModel
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from helper_function import validate_llm_response
@@ -33,6 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
 
 
 
@@ -238,3 +244,72 @@ def get_store():
         return json.loads(json_util.dumps(products))
     except Exception as e:
         return {"error": str(e)}
+    
+
+
+    
+class WishlistRequest(BaseModel):
+    username: str
+    product: str
+    category: Optional[str] = None
+    quantity: Optional[int] = 1
+
+@app.post("/manual_add_item_wishlist")
+def manual_add_item_wishlist(req: WishlistRequest):
+    try:
+        # Step 1: Find product in store (case-insensitive)
+        store_item = store_collection.find_one(
+            {"product": {"$regex": req.product, "$options": "i"}},
+            {"_id": 0, "product": 1, "category": 1, "quantity": 1},
+        )
+
+        if not store_item:
+            raise HTTPException(status_code=404, detail=f"No store item found for '{req.product}'")
+
+        available_qty = store_item.get("quantity", 0)
+        requested_qty = req.quantity or 1
+
+        # Step 2: Check stock
+        if requested_qty > available_qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only {available_qty} × {store_item['product']} available in store",
+            )
+
+        # Step 3: Check if already exists in wishlist
+        existing = user_collection.find_one(
+            {"username": req.username, "wishlist.product": store_item["product"]},
+            {"wishlist.$": 1},
+        )
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{store_item['product']}' is already in wishlist",
+            )
+
+        # Step 4: Create wishlist item
+        wishlist_item = {
+            "product": store_item["product"],
+            "quantity": requested_qty,
+            "category": store_item.get("category", req.category or "unknown"),
+            "action": "add",
+            "status": "manual",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        }
+
+        # Step 5: Push to user's wishlist
+        user_collection.update_one(
+            {"username": req.username},
+            {"$push": {"wishlist": wishlist_item}},
+            upsert=True,
+        )
+
+        return {
+            "message": f"Product '{store_item['product']}' added to wishlist",
+            "data": wishlist_item,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
