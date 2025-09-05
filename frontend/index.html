@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Shopping Assistant</title>
+    <meta name="description" content="AI-powered voice shopping assistant with smart recommendations">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title">🛒 Voice Shopping Assistant</h1>
+            <p class="app-subtitle">Speak to add items to your shopping list</p>
+        </header>
+
+        <!-- Voice Control Panel -->
+        <section class="voice-panel" aria-label="Voice Controls">
+            <div class="voice-controls">
+                <button id="recordBtn" class="record-btn" aria-label="Start voice recording">
+                    <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                    <span class="btn-text">Tap to Speak</span>
+                </button>
+                <div class="recording-indicator" id="recordingIndicator">
+                    <div class="pulse-ring"></div>
+                    <span class="recording-text">Listening...</span>
+                </div>
+            </div>
+
+            <div class="status-display" id="statusDisplay">
+                <div class="transcription" id="transcription"></div>
+                <div class="ai-response" id="aiResponse"></div>
+            </div>
+        </section>
+
+        <!-- Confirmation Dialog -->
+        <div class="confirmation-dialog" id="confirmationDialog">
+            <div class="dialog-content">
+                <h3>Confirm Action</h3>
+                <p id="confirmationText"></p>
+                <div class="dialog-actions">
+                    <button id="confirmBtn" class="btn btn-primary">Confirm</button>
+                    <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Wishlist Section -->
+            <section class="wishlist-section">
+                <div class="section-header">
+                    <h2>My Shopping List</h2>
+                    <span class="item-count" id="itemCount">0 items</span>
+                </div>
+                <div class="wishlist-container" id="wishlistContainer">
+                    <div class="empty-state" id="emptyState">
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                        <h3>Your shopping list is empty</h3>
+                        <p>Use voice commands to add items like "Add milk" or "I need apples"</p>
+                    </div>
+                    <div class="wishlist-items" id="wishlistItems"></div>
+                </div>
+            </section>
+
+            <!-- Recommendations Section -->
+            <section class="recommendations-section">
+                <div class="section-header">
+                    <h2>Recommended for You</h2>
+                    <span class="rec-subtitle">Based on your shopping history</span>
+                </div>
+                <div class="recommendations-container" id="recommendationsContainer">
+                    <div class="recommendations-loading" id="recommendationsLoading">
+                        <div class="loading-spinner"></div>
+                        <span>Finding recommendations...</span>
+                    </div>
+                    <div class="recommendations-grid" id="recommendationsGrid"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Notifications -->
+        <div class="notifications" id="notifications"></div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner large"></div>
+                <p id="loadingText">Processing your request...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

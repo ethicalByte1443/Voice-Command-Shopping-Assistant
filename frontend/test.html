@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Shopping Assistant - Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #1d4ed8;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+        }
+        .test-error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Voice Shopping Assistant - API Test</h1>
+    
+    <div class="test-section">
+        <h2>Backend Connection Test</h2>
+        <p>Testing connection to: <code>http://127.0.0.1:8000</code></p>
+        <button class="test-button" onclick="testConnection()">Test Connection</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Wishlist API Test</h2>
+        <button class="test-button" onclick="testWishlist()">Get Wishlist</button>
+        <button class="test-button" onclick="testAddItem()">Add Test Item</button>
+        <button class="test-button" onclick="testRemoveItem()">Remove Test Item</button>
+        <div id="wishlistResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Recommendations API Test</h2>
+        <button class="test-button" onclick="testRecommendations()">Get Recommendations</button>
+        <div id="recommendationsResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Audio Recording Test</h2>
+        <button class="test-button" onclick="testMicrophone()">Test Microphone Access</button>
+        <button class="test-button" onclick="testRecording()" id="recordTestBtn">Start Test Recording</button>
+        <div id="audioResult"></div>
+    </div>
+
+    <div class="status" id="overallStatus">Ready to test...</div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        const TEST_USERNAME = 'test_user';
+        let isRecording = false;
+        let mediaRecorder = null;
+
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="test-result ${isError ? 'test-error' : ''}">${message}</div>`;
+        }
+
+        function updateStatus(message) {
+            document.getElementById('overallStatus').textContent = message;
+        }
+
+        async function testConnection() {
+            updateStatus('Testing backend connection...');
+            try {
+                const response = await fetch(`${API_BASE}/wishlist/${TEST_USERNAME}`);
+                if (response.ok) {
+                    showResult('connectionResult', '✅ Backend connection successful!');
+                    updateStatus('Backend is running and accessible');
+                } else {
+                    showResult('connectionResult', `❌ Backend responded with status: ${response.status}`, true);
+                    updateStatus('Backend connection failed');
+                }
+            } catch (error) {
+                showResult('connectionResult', `❌ Connection failed: ${error.message}`, true);
+                updateStatus('Cannot connect to backend - make sure it\'s running on port 8000');
+            }
+        }
+
+        async function testWishlist() {
+            updateStatus('Testing wishlist API...');
+            try {
+                const response = await fetch(`${API_BASE}/wishlist/${TEST_USERNAME}`);
+                const data = await response.json();
+                showResult('wishlistResult', `✅ Wishlist loaded: ${JSON.stringify(data, null, 2)}`);
+                updateStatus('Wishlist API working');
+            } catch (error) {
+                showResult('wishlistResult', `❌ Wishlist test failed: ${error.message}`, true);
+                updateStatus('Wishlist API failed');
+            }
+        }
+
+        async function testAddItem() {
+            updateStatus('Testing add item...');
+            try {
+                const testItem = {
+                    product: 'Test Apple',
+                    quantity: 2,
+                    category: 'fruit',
+                    action: 'add',
+                    status: 'test_item'
+                };
+
+                const response = await fetch(`${API_BASE}/update_wishlist/${TEST_USERNAME}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testItem)
+                });
+
+                const data = await response.json();
+                showResult('wishlistResult', `✅ Add item result: ${JSON.stringify(data, null, 2)}`);
+                updateStatus('Add item API working');
+            } catch (error) {
+                showResult('wishlistResult', `❌ Add item failed: ${error.message}`, true);
+                updateStatus('Add item API failed');
+            }
+        }
+
+        async function testRemoveItem() {
+            updateStatus('Testing remove item...');
+            try {
+                const removeItem = {
+                    product: 'Test Apple',
+                    quantity: 1,
+                    category: 'fruit',
+                    action: 'remove',
+                    status: 'test_removal'
+                };
+
+                const response = await fetch(`${API_BASE}/update_wishlist/${TEST_USERNAME}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(removeItem)
+                });
+
+                const data = await response.json();
+                showResult('wishlistResult', `✅ Remove item result: ${JSON.stringify(data, null, 2)}`);
+                updateStatus('Remove item API working');
+            } catch (error) {
+                showResult('wishlistResult', `❌ Remove item failed: ${error.message}`, true);
+                updateStatus('Remove item API failed');
+            }
+        }
+
+        async function testRecommendations() {
+            updateStatus('Testing recommendations API...');
+            try {
+                const response = await fetch(`${API_BASE}/recommendations/${TEST_USERNAME}`);
+                const data = await response.json();
+                showResult('recommendationsResult', `✅ Recommendations: ${JSON.stringify(data, null, 2)}`);
+                updateStatus('Recommendations API working');
+            } catch (error) {
+                showResult('recommendationsResult', `❌ Recommendations failed: ${error.message}`, true);
+                updateStatus('Recommendations API failed');
+            }
+        }
+
+        async function testMicrophone() {
+            updateStatus('Testing microphone access...');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                showResult('audioResult', '✅ Microphone access granted!');
+                updateStatus('Microphone working');
+                stream.getTracks().forEach(track => track.stop()); // Clean up
+            } catch (error) {
+                showResult('audioResult', `❌ Microphone access failed: ${error.message}`, true);
+                updateStatus('Microphone access denied or not available');
+            }
+        }
+
+        async function testRecording() {
+            const btn = document.getElementById('recordTestBtn');
+            
+            if (!isRecording) {
+                try {
+                    updateStatus('Starting test recording...');
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    const audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        showResult('audioResult', `✅ Recording completed! Size: ${audioBlob.size} bytes`);
+                        updateStatus('Recording test successful');
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    btn.textContent = 'Stop Test Recording';
+                    showResult('audioResult', '🎤 Recording... speak now!');
+                    
+                } catch (error) {
+                    showResult('audioResult', `❌ Recording failed: ${error.message}`, true);
+                    updateStatus('Recording test failed');
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                btn.textContent = 'Start Test Recording';
+                updateStatus('Stopping recording...');
+            }
+        }
+
+        // Auto-test connection on load
+        window.addEventListener('load', () => {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html>

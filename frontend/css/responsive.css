@@ -1,0 +1,337 @@
+/* Responsive Design */
+
+/* Mobile First Approach */
+@media (max-width: 767px) {
+    .app-container {
+        padding: var(--spacing-sm);
+        gap: var(--spacing-lg);
+    }
+
+    .app-title {
+        font-size: 1.5rem;
+    }
+
+    .app-subtitle {
+        font-size: 1rem;
+    }
+
+    .voice-panel {
+        padding: var(--spacing-lg);
+    }
+
+    .record-btn {
+        width: 100px;
+        height: 100px;
+        padding: var(--spacing-lg);
+    }
+
+    .mic-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    .btn-text {
+        font-size: 0.75rem;
+    }
+
+    .wishlist-section,
+    .recommendations-section {
+        padding: var(--spacing-lg);
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+
+    .section-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .wishlist-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-md);
+    }
+
+    .item-info {
+        width: 100%;
+    }
+
+    .item-actions {
+        align-self: flex-end;
+    }
+
+    .recommendations-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+
+    .dialog-content {
+        margin: var(--spacing-md);
+    }
+
+    .dialog-actions {
+        flex-direction: column;
+    }
+
+    .notifications {
+        left: var(--spacing-sm);
+        right: var(--spacing-sm);
+        top: var(--spacing-sm);
+    }
+
+    /* Touch-friendly buttons */
+    .btn {
+        min-height: 48px;
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+
+    .remove-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    /* Larger touch targets for voice control */
+    .record-btn {
+        min-width: 120px;
+        min-height: 120px;
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .app-container {
+        padding: var(--spacing-lg);
+    }
+
+    .main-content {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-xl);
+    }
+
+    .recommendations-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+
+    .wishlist-item {
+        padding: var(--spacing-lg);
+    }
+
+    .voice-panel {
+        padding: var(--spacing-xl);
+    }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+    .app-container {
+        padding: var(--spacing-xl);
+    }
+
+    .main-content {
+        grid-template-columns: 2fr 1fr;
+        gap: var(--spacing-2xl);
+    }
+
+    .voice-panel {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--spacing-2xl);
+        align-items: center;
+    }
+
+    .voice-controls {
+        margin-bottom: 0;
+    }
+
+    .status-display {
+        min-height: 120px;
+    }
+
+    .recommendations-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+
+    .recommendation-card {
+        padding: var(--spacing-md);
+    }
+
+    .rec-item-name {
+        font-size: 0.8rem;
+    }
+
+    .rec-item-meta {
+        font-size: 0.7rem;
+    }
+
+    /* Hover effects for desktop */
+    .wishlist-item:hover {
+        transform: translateY(-1px);
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+}
+
+/* Large Desktop */
+@media (min-width: 1200px) {
+    .app-container {
+        max-width: 1400px;
+    }
+
+    .main-content {
+        grid-template-columns: 2fr 1fr;
+    }
+
+    .recommendations-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* High DPI Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .loading-spinner {
+        border-width: 1px;
+    }
+
+    .loading-spinner.large {
+        border-width: 2px;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .pulse-ring {
+        animation: none;
+    }
+
+    .loading-spinner {
+        animation: none;
+        border-top-color: var(--text-secondary);
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --text-primary: #f9fafb;
+        --text-secondary: #d1d5db;
+        --text-light: #9ca3af;
+        --bg-primary: #1f2937;
+        --bg-secondary: #111827;
+        --bg-tertiary: #374151;
+        --border-color: #374151;
+        --border-light: #4b5563;
+    }
+
+    .app-header {
+        background: linear-gradient(135deg, #1e40af, #1d4ed8);
+    }
+
+    .loading-overlay {
+        background: rgba(0, 0, 0, 0.8);
+    }
+
+    .confirmation-dialog {
+        background: rgba(0, 0, 0, 0.7);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .voice-panel,
+    .recommendations-section,
+    .notifications,
+    .confirmation-dialog,
+    .loading-overlay {
+        display: none !important;
+    }
+
+    .app-container {
+        max-width: none;
+        padding: 0;
+    }
+
+    .wishlist-section {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+
+    .wishlist-item {
+        break-inside: avoid;
+        border: 1px solid #ccc;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .item-actions {
+        display: none;
+    }
+}
+
+/* Accessibility Improvements */
+@media (max-width: 767px) {
+    /* Ensure touch targets are at least 44px */
+    button, .btn, input, select, textarea {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Increase spacing for better touch interaction */
+    .dialog-actions .btn {
+        margin-bottom: var(--spacing-sm);
+    }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 767px) and (orientation: landscape) {
+    .app-header {
+        padding: var(--spacing-md) 0;
+    }
+
+    .app-title {
+        font-size: 1.25rem;
+    }
+
+    .voice-panel {
+        padding: var(--spacing-md);
+    }
+
+    .record-btn {
+        width: 80px;
+        height: 80px;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 320px) {
+    .app-container {
+        padding: var(--spacing-xs);
+    }
+
+    .voice-panel,
+    .wishlist-section,
+    .recommendations-section {
+        padding: var(--spacing-md);
+    }
+
+    .record-btn {
+        width: 90px;
+        height: 90px;
+    }
+
+    .btn-text {
+        font-size: 0.7rem;
+    }
+}
