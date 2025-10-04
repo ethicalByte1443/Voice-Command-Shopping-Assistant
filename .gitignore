@@ -1,6 +1,52 @@
-.env
-__pycache__
-.venv
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
 
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Environment variables
+.env
+.env.*
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Test and coverage
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Node.js (if applicable)
+node_modules/
+
+# Custom
 .kiro
-.vscode

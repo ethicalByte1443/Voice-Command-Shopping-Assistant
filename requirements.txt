@@ -7,3 +7,4 @@ sentence-transformers
 faiss-cpu
 rapidfuzz
 numpy
+python-multipart

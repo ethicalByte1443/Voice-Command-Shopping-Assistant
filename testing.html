@@ -73,6 +73,7 @@
 
     // 🔹 Function to fetch wishlist
     async function loadWishlist() {
+      
       let res = await fetch(`http://127.0.0.1:8000/wishlist/${username}`);
       let data = await res.json();
       wishlist.innerHTML = "";

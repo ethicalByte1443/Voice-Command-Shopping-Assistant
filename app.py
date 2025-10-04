@@ -27,7 +27,7 @@ load_dotenv()
 
 # ===================== APP START =======================
 app = FastAPI()
-
+print("hello")
 # Enable CORS for frontend testing
 app.add_middleware(
     CORSMiddleware,
@@ -128,6 +128,7 @@ async def update_wishlist_route(username: str, llm_response: dict):
 
 @app.get("/wishlist/{username}")
 async def get_wishlist(username: str):
+    print("wishlist")
     try:
         user = user_collection.find_one({"username": username}, {"_id": 0, "wishlist": 1})
         if not user:
