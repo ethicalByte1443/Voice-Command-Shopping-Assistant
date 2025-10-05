@@ -41,17 +41,18 @@ Users can add or remove products from their wishlist **just by speaking**, and t
 
 ```
 voice-shopping-assistant/
-│── backend/
-│   ├── main.py              # FastAPI entrypoint
-│   ├── db.py                # MongoDB connection + collections
-│   ├── helper_function.py   # JSON validation utils
-│   ├── requirements.txt
-│
-│── frontend/
-│   ├── index.html           # Basic frontend (record voice, wishlist, recommendations)
-│   ├── app.js               # Client logic
+│── frontend_1/              # basic html js app
+|
+│── vox-cart-dash/           # npm run dev
 │
 │── .env                     # API keys (Groq, AssemblyAI, MongoDB URI)
+│── app.py                   # uvicorn app:app --reloaad
+│── db.py                   
+│── helper_function.py       # functions used by main:app
+│── prompt.py                # prompt
+│── seed_store.py            # Dummy Data for DB
+│── requirements.txt         # pip install -r requirement.txt
+│── testing.html             # html page for just testing API
 │── README.md
 ```
 
